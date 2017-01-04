@@ -1,1 +1,90 @@
-Notes:
+Installing Jenkins:
+[Centos]
+Add the repo:
+wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo
+Install the pgp key:
+rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key
+Update the source list:
+yum update
+Install jenkins:
+yum install jenkins # jenkins require java
+Install java, can use openjdk:
+yum install java-1.8.0-openjdk
+Start the jenkins service:
+systemctl enable jenkins && systemctl start jenkins && systemctl status jenkins
+
+If you are not allowed to connect to 8080, here is a workaround:
+yum installl nginx
+Configure nginx as a proxy:
+vim /etc/nginx/nginx.conf
+add this line:
+   location / {
+            proxy_pass  http://127.0.0.1:8080;
+        }
+enable and start the nginx service;
+systemctl enable nginx && systemctl start nginx && systemctl status nginx
+turn off selinux:
+getenforce
+setenforce 0
+systemctl restart nginx jenkins
+selinux config:
+yum install -y setroubleshoot-server selinux-policy-devel
+sepolicy network -t http_port_t
+add port 8080 to the port list:
+semanage port -a -t http_port_t -p tcp 8080
+semanage port -m -t http_port_t -p tcp 8080
+check that the new added port is in the list:
+sepolicy network -t http_port_t
+Unlock jenkins:
+cat /var/lib/jenkins/secrets/initialAdminPassword
+
+If an proxy error apperars, follow the link and grab everything after proxy_pass:
+proxy_redirect     default;
+
+      proxy_set_header   Host             $host;
+      proxy_set_header   X-Real-IP        $remote_addr;
+      proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+      proxy_max_temp_file_size 0;
+
+      #this is the maximum upload size
+      client_max_body_size       10m;
+      client_body_buffer_size    128k;
+
+      proxy_connect_timeout      90;
+      proxy_send_timeout         90;
+      proxy_read_timeout         90;
+
+      proxy_buffer_size          4k;
+      proxy_buffers              4 32k;
+      proxy_busy_buffers_size    64k;
+      proxy_temp_file_write_size 64k;
+
+Remember to restart the nginx service after the changes:
+systemctl restart nginx
+make the jenkins user available to login.
+vim /etc/passwd --> change /bin/false to /bin/bash
+
+generate a ssh key for the jenkins user
+su - jenkins
+generate ssh key
+ssh-keygen
+ssh-copy-id jenkins@localhost
+
+add the jenkins user to the sudoers file:
+visudo
+jenkins ALL=(ALL) NOPASSWD: ALL
+
+
+On the slave node:
+adduser jenkins
+passwd jenkins
+visudo
+jenkins ALL=(ALL) NOPASSWD: ALLjenkins ALL=(ALL) NOPASSWD: ALL
+
+On master server:
+su - jenkins
+ssh-copy-id jenkins@slave-server
+
+If you get a: sudo: sorry, you must have  a tty to run sudo
+visudo on the master node
+and add a explmation infront !requiretty
